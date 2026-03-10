@@ -8,17 +8,21 @@ from langchain_groq import ChatGroq
 from langgraph.graph import StateGraph, END
 from langchain_core.messages import SystemMessage, HumanMessage, AIMessage, ToolMessage
 
-# ── API Keys (from Streamlit Secrets) ─────────────────────────────────────────
+
 GROQ_API_KEY    = st.secrets["GROQ_API_KEY"]
 REDIS_HOST      = st.secrets["REDIS_HOST"]
 REDIS_PORT      = int(st.secrets["REDIS_PORT"])
 REDIS_PASSWORD  = st.secrets["REDIS_PASSWORD"]
 
-# ── Page config ────────────────────────────────────────────────────────────────
+
+os.environ["LANGCHAIN_TRACING_V2"] = "true"
+os.environ["LANGCHAIN_API_KEY"]    = st.secrets["langchain_api_key"]
+os.environ["LANGCHAIN_PROJECT"]    = st.secrets["project_name"]
+
+
 st.set_page_config(page_title="Hotel Booking Agent", page_icon="🏨")
 st.title("🏨 Hotel Booking AI Agent")
 
-# ── Static mock data ───────────────────────────────────────────────────────────
 SEARCH_DATA = {
     "city": "Jaipur",
     "hotels": [
@@ -55,7 +59,6 @@ HOTEL_DETAILS = {
     "nearby": ["Hawa Mahal – 2km", "Amber Fort – 11km", "Jaipur Junction – 3km"],
 }
 
-# ── Redis helpers ──────────────────────────────────────────────────────────────
 SESSION_ID         = "hotel_user_1"
 TTL_SECONDS        = 300
 SUMMARY_TRIGGER    = 5
@@ -114,7 +117,6 @@ def set_cache(key, value, ttl):
     rc.setex(key, ttl, json.dumps(value))
 
 
-# ── Tools ──────────────────────────────────────────────────────────────────────
 @tool
 def search_hotels(city: str, checkin: str, checkout: str, guests: int) -> str:
     """Search hotels by city and dates."""
@@ -150,7 +152,6 @@ def get_hotel_details(hotel_id: str) -> str:
 
 tools = [search_hotels, check_availability, get_hotel_details]
 
-# ── LangGraph agent ────────────────────────────────────────────────────────────
 SYSTEM_PROMPT = """You are a Hotel Booking AI Agent. Help users search hotels, check availability, and get hotel details.
 
 Tools available:
@@ -199,16 +200,16 @@ def build_agent():
 
 agent = build_agent()
 
-# ── Session state ──────────────────────────────────────────────────────────────
+
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
 
-# ── Render chat history ────────────────────────────────────────────────────────
+
 for msg in st.session_state.chat_history:
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
 
-# ── Chat input ─────────────────────────────────────────────────────────────────
+
 if user_input := st.chat_input("Ask about hotels… e.g. Find hotels in Jaipur for 2 guests Oct 10–12"):
     st.session_state.chat_history.append({"role": "user", "content": user_input})
     with st.chat_message("user"):
